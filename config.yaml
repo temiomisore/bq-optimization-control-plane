@@ -65,3 +65,12 @@ alerting:
     - type: "pubsub"
       topic_name: "projects/temi-project-408005/topics/bq-optimizer-alerts"
       enabled: false
+
+# Integration with Google's open-source bigquery-antipattern-recognition tool
+antipattern_tool:
+  enabled: true
+  # Options: "hybrid" (runs Google CLI if available, with built-in fallback) | "builtin" | "google_cli"
+  mode: "hybrid"
+  # Path to Google's bigquery-antipattern-recognition JAR or binary
+  jar_path: "bigquery-antipattern-recognition.jar"
+  top_expensive_queries_limit: 100
