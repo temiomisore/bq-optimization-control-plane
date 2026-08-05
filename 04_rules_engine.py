@@ -176,10 +176,15 @@ class RulesEngine:
     def evaluate_c3_05_unused_tables(self) -> List[Finding]:
         """C3-05: Recommends archiving/deleting tables with zero reads/writes in 90 days."""
         query = f"""
-        SELECT project_id, dataset_id, table_id, last_read_at, last_write_at
-        FROM `{self.ops_project}.optimizer_ops.v_table_read_write_90d`
-        WHERE (last_read_at IS NULL OR last_read_at < TIMESTAMP_SUB(CURRENT_TIMESTAMP(), INTERVAL 90 DAY))
-          AND (last_write_at IS NULL OR last_write_at < TIMESTAMP_SUB(CURRENT_TIMESTAMP(), INTERVAL 90 DAY))
+        SELECT s.project_id, s.dataset_id, s.table_id, rw.last_read_at, rw.last_write_at
+        FROM `{self.ops_project}.optimizer_ops.table_state_daily` s
+        LEFT JOIN `{self.ops_project}.optimizer_ops.v_table_read_write_90d` rw
+          ON s.project_id = rw.project_id AND s.dataset_id = rw.dataset_id AND s.table_id = rw.table_id
+        WHERE s.snapshot_date = (SELECT MAX(snapshot_date) FROM `{self.ops_project}.optimizer_ops.table_state_daily`)
+          AND s.table_type = 'BASE TABLE'
+          AND s.dataset_id NOT IN ('optimizer_ops', 'INFORMATION_SCHEMA')
+          AND (rw.last_read_at IS NULL OR rw.last_read_at < TIMESTAMP_SUB(CURRENT_TIMESTAMP(), INTERVAL 90 DAY))
+          AND (rw.last_write_at IS NULL OR rw.last_write_at < TIMESTAMP_SUB(CURRENT_TIMESTAMP(), INTERVAL 90 DAY))
         LIMIT 50
         """
         rows = self.client.query(query).result()
