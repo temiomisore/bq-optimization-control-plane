@@ -72,7 +72,8 @@ def main():
         change_sets = compiler.compile_and_persist(findings)
         print(f"Compiled into {len(change_sets)} object-scoped Change Sets.")
         for cs in change_sets:
-            print(f"  -> CS {cs['change_set_id']}: Class {cs['apply_class']} | Net Value=${float(cs['net_monthly_value_usd']):.2f}/mo | {cs['finding_summary']}")
+            target_str = f"{cs['target_dataset']}.{cs['target_table']}" if cs['target_table'] else cs['target_dataset']
+            print(f"  -> CS {cs['change_set_id']}: Class {cs['apply_class']} | Target: {target_str} | Net Value=${float(cs['net_monthly_value_usd']):.2f}/mo | {cs['finding_summary']}")
 
     elif args.action == "apply":
         executor = ExecutorStateMachine(client, ops_project, cfg)

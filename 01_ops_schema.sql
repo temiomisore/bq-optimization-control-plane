@@ -305,6 +305,8 @@ CLUSTER BY state, target_dataset;
 CREATE TABLE IF NOT EXISTS optimizer_ops.bq_optimization_savings_ledger (
   event_timestamp               TIMESTAMP NOT NULL,
   project_id                    STRING NOT NULL,
+  dataset_id                    STRING,
+  table_id                      STRING,
   entity_type                   STRING NOT NULL,
   target_entity                 STRING NOT NULL,
   optimization_type             STRING,

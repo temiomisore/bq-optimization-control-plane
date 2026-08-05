@@ -63,19 +63,25 @@ class Verifier:
     def _record_savings_to_ledger(self, change_set: Dict[str, Any], realized_usd: float) -> None:
         """Writes verified savings receipt to the executive ROI ledger table."""
         table_ref = f"{self.ops_project}.optimizer_ops.bq_optimization_savings_ledger"
+        est_savings = change_set.get("gross_monthly_savings_usd", 0.0)
         row = {
             "event_timestamp": datetime.now(timezone.utc).isoformat(),
             "project_id": change_set["target_project"],
-            "entity_type": "TABLE" if change_set["target_table"] else "DATASET",
-            "target_entity": f"{change_set['target_project']}.{change_set['target_dataset']}.{change_set['target_table'] or ''}",
-            "optimization_type": str(change_set["rule_ids"]),
+            "dataset_id": change_set.get("target_dataset", ""),
+            "table_id": change_set.get("target_table", ""),
+            "entity_type": "TABLE" if change_set.get("target_table") else "DATASET",
+            "target_entity": f"{change_set['target_project']}.{change_set.get('target_dataset', '')}.{change_set.get('target_table', '')}",
+            "optimization_type": str(change_set.get("rule_ids", [])),
             "status": change_set["state"],
-            "estimated_monthly_savings_usd": change_set.get("gross_monthly_savings_usd", 0.0),
-            "realized_monthly_savings_usd": realized_usd,
+            "estimated_monthly_savings_usd": str(round(float(est_savings), 2)),
+            "realized_monthly_savings_usd": str(round(realized_usd, 2)),
             "backup_clone_table": "NONE"
         }
-        # In production: self.client.insert_rows_json(table_ref, [row])
-        print(f"  [LEDGER RECORDED] {row['target_entity']} -> Realized Monthly Savings: ${realized_usd:.2f}")
+        try:
+            self.client.insert_rows_json(table_ref, [row])
+            print(f"  [LEDGER RECORDED] {row['target_entity']} -> Realized Monthly Savings: ${realized_usd:.2f}/mo written to BigQuery.")
+        except Exception as e:
+            print(f"  [LEDGER ERROR] Could not write to savings ledger: {e}")
 
     def _sync_recommender_api(self, change_set: Dict[str, Any], action: str) -> None:
         """Writes back markSucceeded / markDismissed to Google Recommender API."""

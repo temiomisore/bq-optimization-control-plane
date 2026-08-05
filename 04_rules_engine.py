@@ -148,7 +148,7 @@ class RulesEngine:
                 target_project=r["project_id"],
                 target_dataset=r["dataset_id"],
                 target_table=r["table_id"],
-                finding_summary=f"Table `{r['table_id']}` is {r['total_logical_bytes']/1e9:.1f} GB and unpartitioned. Partition by `{recommended_col}` (DAY).",
+                finding_summary=f"Table `{r['dataset_id']}.{r['table_id']}` is {r['total_logical_bytes']/1e9:.1f} GB and unpartitioned. Partition by `{recommended_col}` (DAY).",
                 evidence={
                     "total_logical_bytes": r["total_logical_bytes"],
                     "90d_scan_jobs": r["scan_jobs"],
@@ -202,7 +202,7 @@ class RulesEngine:
                 target_project=r["project_id"],
                 target_dataset=r["dataset_id"],
                 target_table=r["table_id"],
-                finding_summary=f"Table `{r['table_id']}` has zero reads or writes in the last 90 days. Recommend archiving to Cloud Storage and dropping.",
+                finding_summary=f"Table `{r['dataset_id']}.{r['table_id']}` has zero reads or writes in the last 90 days. Recommend archiving to Cloud Storage and dropping.",
                 evidence={
                     "last_read_at": str(r["last_read_at"]),
                     "last_write_at": str(r["last_write_at"]),
