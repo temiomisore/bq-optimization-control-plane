@@ -7,7 +7,7 @@
 project:
   # The default GCP project ID where optimizer_ops resides.
   # Can be overridden by --project-id CLI flag or GCP_PROJECT_ID env var.
-  ops_project_id: "my-gcp-ops-project"
+  ops_project_id: "temi-project-408005"
   
   # Datasets to exclude from archiving, DDL modifications, or alerting
   exclude_datasets:
@@ -63,5 +63,5 @@ alerting:
         - "data-eng-alerts@company.com"
       enabled: false
     - type: "pubsub"
-      topic_name: "projects/my-gcp-ops-project/topics/bq-optimizer-alerts"
+      topic_name: "projects/temi-project-408005/topics/bq-optimizer-alerts"
       enabled: false
