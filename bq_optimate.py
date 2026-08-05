@@ -21,17 +21,18 @@ Usage:
 """
 
 import argparse
+import os
 import sys
 import yaml
 from importlib.machinery import SourceFileLoader
 from google.cloud import bigquery
 
-# Import modules from artifact path
-ARTIFACT_DIR = "/usr/local/google/home/temiomisore/.gemini/jetski/brain/de5ba862-d82e-4a13-bd9f-9fd903a30103"
-RulesEngine = SourceFileLoader("rules_engine", f"{ARTIFACT_DIR}/04_rules_engine.py").load_module().RulesEngine
-PlanCompiler = SourceFileLoader("plan_compiler", f"{ARTIFACT_DIR}/05_plan_compiler.py").load_module().PlanCompiler
-ExecutorStateMachine = SourceFileLoader("executor_state_machine", f"{ARTIFACT_DIR}/06_executor_state_machine.py").load_module().ExecutorStateMachine
-Verifier = SourceFileLoader("verifier", f"{ARTIFACT_DIR}/07_verifier.py").load_module().Verifier
+# Dynamically resolve module paths relative to this file's directory
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+RulesEngine = SourceFileLoader("rules_engine", os.path.join(BASE_DIR, "04_rules_engine.py")).load_module().RulesEngine
+PlanCompiler = SourceFileLoader("plan_compiler", os.path.join(BASE_DIR, "05_plan_compiler.py")).load_module().PlanCompiler
+ExecutorStateMachine = SourceFileLoader("executor_state_machine", os.path.join(BASE_DIR, "06_executor_state_machine.py")).load_module().ExecutorStateMachine
+Verifier = SourceFileLoader("verifier", os.path.join(BASE_DIR, "07_verifier.py")).load_module().Verifier
 
 
 def load_config(config_path: str, override_project: str = None) -> dict:
@@ -45,7 +46,7 @@ def load_config(config_path: str, override_project: str = None) -> dict:
 def main():
     parser = argparse.ArgumentParser(description="BigQuery Optimization Control Plane CLI")
     parser.add_argument("--action", required=True, choices=["evaluate", "apply", "verify"], help="Action to perform")
-    parser.add_argument("--config", default="config.yaml", help="Path to YAML configuration file")
+    parser.add_argument("--config", default=os.path.join(BASE_DIR, "config.yaml"), help="Path to YAML configuration file")
     parser.add_argument("--project-id", help="Override GCP project ID in config")
     parser.add_argument("--mode", default="dry-run", choices=["dry-run", "auto-apply", "recommend-only"], help="Execution mode")
     parser.add_argument("--change-set-id", help="Specific Change Set UUID to apply or verify")
@@ -71,11 +72,10 @@ def main():
         change_sets = compiler.compile_and_persist(findings)
         print(f"Compiled into {len(change_sets)} object-scoped Change Sets.")
         for cs in change_sets:
-            print(f"  -> CS {cs['change_set_id']}: Class {cs['apply_class']} | Net Value=${cs['net_monthly_value_usd']:.2f}/mo | {cs['finding_summary']}")
+            print(f"  -> CS {cs['change_set_id']}: Class {cs['apply_class']} | Net Value=${float(cs['net_monthly_value_usd']):.2f}/mo | {cs['finding_summary']}")
 
     elif args.action == "apply":
         executor = ExecutorStateMachine(client, ops_project, cfg)
-        # For demo: instantiate an example Class-3 change set
         demo_cs = {
             "change_set_id": args.change_set_id or "demo-cs-001",
             "apply_class": 3,
