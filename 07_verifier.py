@@ -23,11 +23,9 @@ class Verifier:
         self.config = config
 
     def verify_change_sets(self, change_sets: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
-        """Runs verification checks on all VERIFYING change sets."""
+        """Runs verification checks on change sets."""
         updated = []
         for cs in change_sets:
-            if cs["state"] != "VERIFYING":
-                continue
             res = self._verify_single_change_set(cs)
             updated.append(res)
         return updated
@@ -35,8 +33,8 @@ class Verifier:
     def _verify_single_change_set(self, change_set: Dict[str, Any]) -> Dict[str, Any]:
         """Compares baseline vs post-apply measurements for a target object."""
         cs_id = change_set["change_set_id"]
-        target = f"{change_set['target_project']}.{change_set['target_dataset']}.{change_set['target_table'] or 'DATASET'}"
-        est_savings = change_set.get("gross_monthly_savings_usd", 0.0)
+        target = f"{change_set['target_project']}.{change_set.get('target_dataset', '')}.{change_set.get('target_table') or 'DATASET'}"
+        est_savings = float(change_set.get("gross_monthly_savings_usd") or 0.0)
         
         print(f"[{datetime.now(timezone.utc).isoformat()}] Verifying CS {cs_id} on {target} (predicted savings=${est_savings:.2f}/mo)...")
 
