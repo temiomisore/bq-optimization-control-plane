@@ -16,6 +16,10 @@ import json
 from datetime import datetime, timezone
 from typing import Any, Dict, Optional
 from google.cloud import bigquery
+try:
+    from google.cloud import storage
+except ImportError:
+    storage = None
 
 
 class ExecutorStateMachine:
@@ -84,7 +88,8 @@ class ExecutorStateMachine:
         action = changes[0].get("action", "PARTITION_TABLE") if changes else "PARTITION_TABLE"
 
         if action == "ARCHIVE_AND_DROP_TABLE":
-            archive_uri = f"gs://{proj}-bq-archive/{dataset}/{table}/*.parquet"
+            bucket_name = f"{proj}-bq-archive"
+            archive_uri = f"gs://{bucket_name}/{dataset}/{table}/*.parquet"
             archive_sql = f"""
             EXPORT DATA OPTIONS(uri='{archive_uri}', format='PARQUET')
             AS SELECT * FROM {target_fqn};
@@ -99,6 +104,15 @@ class ExecutorStateMachine:
                 return change_set
 
             try:
+                # Ensure archive bucket exists
+                if storage:
+                    try:
+                        gcs_client = storage.Client(project=proj)
+                        gcs_client.get_bucket(bucket_name)
+                    except Exception:
+                        print(f"  [S3 ARCHIVE] Creating GCS archive bucket: {bucket_name}")
+                        gcs_client.create_bucket(bucket_name, location="US")
+
                 print(f"  [S1 CLONE EXEC] Creating zero-copy backup clone: {backup_fqn}")
                 self.client.query(clone_ddl).result()
                 print(f"  [S3 ARCHIVE EXEC] Exporting table data to Cloud Storage: {archive_uri}")
