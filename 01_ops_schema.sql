@@ -251,3 +251,66 @@ USING (
 ) S
 ON T.key = S.key
 WHEN NOT MATCHED THEN INSERT (key, value) VALUES (S.key, S.value);
+
+-- -----------------------------------------------------------------------------
+-- Change Sets & Executive ROI Ledger
+-- -----------------------------------------------------------------------------
+
+CREATE TABLE IF NOT EXISTS optimizer_ops.change_sets (
+  change_set_id              STRING NOT NULL,
+  created_at                 TIMESTAMP NOT NULL,
+  rule_ids                   ARRAY<STRING>,
+  rule_versions              ARRAY<STRING>,
+  apply_class                INT64,
+  source                     STRING,
+  native_rec_names           ARRAY<STRING>,
+  target_project             STRING,
+  target_dataset             STRING,
+  target_table               STRING,
+  target_region              STRING,
+  finding_summary            STRING,
+  evidence                   STRING,
+  observation_days           INT64,
+  current_config_ddl         STRING,
+  proposed_change            STRING,
+  execution_route            STRING,
+  owner_principal            STRING,
+  owner_source               STRING,
+  gross_monthly_savings_usd  NUMERIC,
+  recurring_monthly_cost_usd NUMERIC,
+  one_time_apply_cost_usd    NUMERIC,
+  net_monthly_value_usd      NUMERIC,
+  savings_basis              STRING,
+  confidence                 NUMERIC,
+  confidence_factors         STRING,
+  score                      NUMERIC,
+  blast_radius               STRING,
+  risk_notes                 ARRAY<STRING>,
+  state                      STRING NOT NULL,
+  state_history              STRING,
+  approvals                  STRING,
+  rejection_reason           STRING,
+  rejection_note             STRING,
+  snooze_until               TIMESTAMP,
+  expires_at                 TIMESTAMP,
+  rollback_plan              STRING,
+  verification_plan          STRING,
+  applied_at                 TIMESTAMP,
+  verification_result        STRING,
+  realized_over_predicted    NUMERIC
+)
+PARTITION BY DATE(created_at)
+CLUSTER BY state, target_dataset;
+
+CREATE TABLE IF NOT EXISTS optimizer_ops.bq_optimization_savings_ledger (
+  event_timestamp               TIMESTAMP NOT NULL,
+  project_id                    STRING NOT NULL,
+  entity_type                   STRING NOT NULL,
+  target_entity                 STRING NOT NULL,
+  optimization_type             STRING,
+  status                        STRING NOT NULL,
+  estimated_monthly_savings_usd NUMERIC,
+  realized_monthly_savings_usd  NUMERIC,
+  backup_clone_table            STRING
+)
+PARTITION BY DATE(event_timestamp);

@@ -8,14 +8,16 @@ verification plans, and persists compiled change sets to optimizer_ops.change_se
 """
 
 import json
+import os
 import uuid
 from datetime import datetime, timezone, timedelta
 from typing import Any, Dict, List, Optional
 from google.cloud import bigquery
 from importlib.machinery import SourceFileLoader
 
-# Import Finding class from 04_rules_engine
-rules_mod = SourceFileLoader("rules_engine", "/usr/local/google/home/temiomisore/.gemini/jetski/brain/de5ba862-d82e-4a13-bd9f-9fd903a30103/04_rules_engine.py").load_module()
+# Import Finding class dynamically from 04_rules_engine.py in the same directory
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+rules_mod = SourceFileLoader("rules_engine", os.path.join(BASE_DIR, "04_rules_engine.py")).load_module()
 Finding = rules_mod.Finding
 
 
@@ -115,5 +117,11 @@ class PlanCompiler:
         if not change_sets:
             return
         table_ref = f"{self.ops_project}.optimizer_ops.change_sets"
-        # In a full deployment, use bigquery.LoadJobConfig or streaming insert
-        print(f"[{datetime.now(timezone.utc).isoformat()}] Compiled {len(change_sets)} change sets for {table_ref}.")
+        try:
+            errors = self.client.insert_rows_json(table_ref, change_sets)
+            if errors:
+                print(f"[{datetime.now(timezone.utc).isoformat()}] Errors inserting change sets: {errors}")
+            else:
+                print(f"[{datetime.now(timezone.utc).isoformat()}] Successfully wrote {len(change_sets)} change sets to {table_ref}.")
+        except Exception as e:
+            print(f"[{datetime.now(timezone.utc).isoformat()}] BigQuery insert exception: {e}")
