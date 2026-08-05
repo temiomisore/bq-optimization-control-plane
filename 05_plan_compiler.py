@@ -68,6 +68,7 @@ class PlanCompiler:
         now = datetime.now(timezone.utc)
         expires_at = now + timedelta(days=14)
 
+        score_val = (net_value * avg_conf) / (1.5 if max_class == 4 else max_class)
         return {
             "change_set_id": cs_id,
             "created_at": now.isoformat(),
@@ -88,14 +89,14 @@ class PlanCompiler:
             "execution_route": first.execution_route,
             "owner_principal": "auto-owner@company.com",
             "owner_source": "LABEL",
-            "gross_monthly_savings_usd": total_gross,
-            "recurring_monthly_cost_usd": total_recurring,
-            "one_time_apply_cost_usd": total_apply,
-            "net_monthly_value_usd": net_value,
+            "gross_monthly_savings_usd": str(round(total_gross, 2)),
+            "recurring_monthly_cost_usd": str(round(total_recurring, 2)),
+            "one_time_apply_cost_usd": str(round(total_apply, 2)),
+            "net_monthly_value_usd": str(round(net_value, 2)),
             "savings_basis": first.savings_basis,
-            "confidence": avg_conf,
+            "confidence": str(round(avg_conf, 4)),
             "confidence_factors": json.dumps(first.confidence_factors),
-            "score": (net_value * avg_conf) / (1.5 if max_class == 4 else max_class),
+            "score": str(round(score_val, 2)),
             "blast_radius": json.dumps({"dependent_views": 0, "scheduled_queries": 0}),
             "risk_notes": list(set(all_risk_notes)),
             "state": "PENDING_REVIEW",
