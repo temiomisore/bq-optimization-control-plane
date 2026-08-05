@@ -218,15 +218,15 @@ CLUSTER BY recommender, state;
 -- -----------------------------------------------------------------------------
 
 CREATE TABLE IF NOT EXISTS optimizer_ops.collector_audit (
-  run_id    STRING,
-  at        TIMESTAMP,
-  step      STRING,
-  region    STRING,
-  status    STRING,   -- OK | SKIPPED | ERROR
-  row_count INT64,
-  message   STRING
+  run_id          STRING,
+  audit_timestamp TIMESTAMP,
+  step            STRING,
+  region          STRING,
+  status          STRING,   -- OK | SKIPPED | ERROR
+  row_count       INT64,
+  message         STRING
 )
-PARTITION BY DATE(at)
+PARTITION BY DATE(audit_timestamp)
 OPTIONS (partition_expiration_days = 180);
 
 -- Pricing/threshold constants for the derived layer. Values here are
