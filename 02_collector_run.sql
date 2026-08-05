@@ -147,41 +147,47 @@ BEGIN
   DELETE FROM optimizer_ops.table_state_daily
   WHERE snapshot_date = CURRENT_DATE() AND region = r.region;
 
-  EXECUTE IMMEDIATE FORMAT("""
-    INSERT INTO optimizer_ops.table_state_daily
-    SELECT
-      CURRENT_DATE(), '%s',
-      t.table_catalog, t.table_schema, t.table_name, t.table_type, t.creation_time,
-      t.ddl,
-      opt.require_partition_filter, opt.partition_expiration_days, opt.expiration_timestamp,
-      s.total_rows, s.total_partitions,
-      s.total_logical_bytes,  s.active_logical_bytes,  s.long_term_logical_bytes,
-      s.total_physical_bytes, s.active_physical_bytes, s.long_term_physical_bytes,
-      s.time_travel_physical_bytes, s.fail_safe_physical_bytes,
-      s.storage_last_modified_time,
-      '%s'
-    FROM %s.TABLES t
-    LEFT JOIN (
-      SELECT table_catalog, table_schema, table_name,
-             MAX(IF(option_name = 'require_partition_filter',  option_value, NULL)) AS require_partition_filter,
-             MAX(IF(option_name = 'partition_expiration_days', option_value, NULL)) AS partition_expiration_days,
-             MAX(IF(option_name = 'expiration_timestamp',      option_value, NULL)) AS expiration_timestamp
-      FROM %s.TABLE_OPTIONS
-      GROUP BY 1, 2, 3
-    ) opt
-      ON  opt.table_catalog = t.table_catalog
-      AND opt.table_schema  = t.table_schema
-      AND opt.table_name    = t.table_name
-    LEFT JOIN %s.TABLE_STORAGE s
-      ON  s.project_id   = t.table_catalog
-      AND s.table_schema = t.table_schema
-      AND s.table_name   = t.table_name
-      AND s.deleted      = FALSE
-    WHERE t.table_schema != 'optimizer_ops'
-  """, r.region, run_id, src, src, src);
+  BEGIN
+    EXECUTE IMMEDIATE FORMAT("""
+      INSERT INTO optimizer_ops.table_state_daily
+      SELECT
+        CURRENT_DATE(), '%s',
+        t.table_catalog, t.table_schema, t.table_name, t.table_type, t.creation_time,
+        t.ddl,
+        opt.require_partition_filter, opt.partition_expiration_days, opt.expiration_timestamp,
+        s.total_rows, s.total_partitions,
+        s.total_logical_bytes,  s.active_logical_bytes,  s.long_term_logical_bytes,
+        s.total_physical_bytes, s.active_physical_bytes, s.long_term_physical_bytes,
+        s.time_travel_physical_bytes, s.fail_safe_physical_bytes,
+        s.storage_last_modified_time,
+        '%s'
+      FROM %s.TABLES t
+      LEFT JOIN (
+        SELECT table_catalog, table_schema, table_name,
+               MAX(IF(option_name = 'require_partition_filter',  option_value, NULL)) AS require_partition_filter,
+               MAX(IF(option_name = 'partition_expiration_days', option_value, NULL)) AS partition_expiration_days,
+               MAX(IF(option_name = 'expiration_timestamp',      option_value, NULL)) AS expiration_timestamp
+        FROM %s.TABLE_OPTIONS
+        GROUP BY 1, 2, 3
+      ) opt
+        ON  opt.table_catalog = t.table_catalog
+        AND opt.table_schema  = t.table_schema
+        AND opt.table_name    = t.table_name
+      LEFT JOIN %s.TABLE_STORAGE s
+        ON  s.project_id   = t.table_catalog
+        AND s.table_schema = t.table_schema
+        AND s.table_name   = t.table_name
+        AND s.deleted      = FALSE
+      WHERE t.table_schema != 'optimizer_ops'
+    """, r.region, run_id, src, src, src);
 
-  INSERT INTO optimizer_ops.collector_audit
-  VALUES (run_id, CURRENT_TIMESTAMP(), '3_table_state', r.region, 'OK', @@row_count, NULL);
+    INSERT INTO optimizer_ops.collector_audit
+    VALUES (run_id, CURRENT_TIMESTAMP(), '3_table_state', r.region, 'OK', @@row_count, NULL);
+  EXCEPTION WHEN ERROR THEN
+    INSERT INTO optimizer_ops.collector_audit
+    VALUES (run_id, CURRENT_TIMESTAMP(), '3_table_state', r.region, 'SKIPPED', 0,
+            CONCAT('TABLE_STORAGE not ready or enabled yet: ', @@error.message));
+  END;
 
   -- ==========================================================================
   -- 4. Columns snapshot (candidate partition/cluster columns, current spec)
