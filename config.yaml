@@ -1,0 +1,67 @@
+# ==============================================================================
+# config.yaml — BigQuery Optimization Control Plane Configuration
+# ==============================================================================
+# All operational parameters, thresholds, and safety rules are defined here.
+# Zero hardcoded project IDs or credentials exist in the Python code.
+
+project:
+  # The default GCP project ID where optimizer_ops resides.
+  # Can be overridden by --project-id CLI flag or GCP_PROJECT_ID env var.
+  ops_project_id: "my-gcp-ops-project"
+  
+  # Datasets to exclude from archiving, DDL modifications, or alerting
+  exclude_datasets:
+    - "optimizer_ops"
+    - "INFORMATION_SCHEMA"
+    - "sandbox_.*"
+    - "test_.*"
+    - "tmp_.*"
+
+  # Optional label filter to restrict optimization scope (e.g., env: production)
+  required_labels: {}
+
+thresholds:
+  # Minimum table logical size (GB) to recommend partitioning or clustering
+  table_size_min_gb: 100.0
+  clustering_min_gb: 10.0
+  
+  # Single query spend ($) threshold for instant alerts
+  expensive_query_cost_usd: 5.00
+  
+  # Alert when an unpruned query scans more than N GB
+  full_scan_alert_gb: 50.0
+  
+  # Days without read/write to recommend table expiration / cold storage
+  unused_table_days: 90
+  
+  # Minimum monthly dollar savings required to emit a recommendation card
+  min_monthly_savings_usd: 10.00
+  
+  # Confidence discount factor for subquery summation (d_summation)
+  d_summation_discount: 0.5
+
+remediation:
+  # Default execution mode: "dry-run" | "auto-apply" | "recommend-only"
+  default_mode: "dry-run"
+  
+  # Days to retain zero-copy backup clones before expiration (S9 HOLD)
+  backup_retention_days: 14
+  
+  # Automatically rollback S6 swap if data parity regression check fails
+  auto_rollback_on_failure: true
+  
+  # Maximum structural Class-3 applies allowed per table per 7 days
+  max_changes_per_table_weekly: 1
+
+alerting:
+  channels:
+    - type: "slack"
+      webhook_url_env: "SLACK_WEBHOOK_URL"
+      enabled: false
+    - type: "email"
+      recipients:
+        - "data-eng-alerts@company.com"
+      enabled: false
+    - type: "pubsub"
+      topic_name: "projects/my-gcp-ops-project/topics/bq-optimizer-alerts"
+      enabled: false
