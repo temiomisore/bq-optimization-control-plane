@@ -79,9 +79,43 @@ class ExecutorStateMachine:
         OPTIONS(expiration_timestamp = TIMESTAMP_ADD(CURRENT_TIMESTAMP(), INTERVAL {retention_days} DAY));
         """
 
-        # Step 2: Build new partitioned table
-        changes = json.loads(change_set["proposed_change"])
-        part_col = changes[0].get("partition_column", "_PARTITIONDATE")
+        raw_proposed = change_set.get("proposed_change") or "[]"
+        changes = json.loads(raw_proposed) if isinstance(raw_proposed, str) else raw_proposed
+        action = changes[0].get("action", "PARTITION_TABLE") if changes else "PARTITION_TABLE"
+
+        if action == "ARCHIVE_AND_DROP_TABLE":
+            archive_uri = f"gs://{proj}-bq-archive/{dataset}/{table}/*.parquet"
+            archive_sql = f"""
+            EXPORT DATA OPTIONS(uri='{archive_uri}', format='PARQUET')
+            AS SELECT * FROM {target_fqn};
+            """
+            drop_ddl = f"DROP TABLE {target_fqn};"
+
+            if mode == "dry-run":
+                print(f"  [DRY-RUN S1_CLONE] {clone_ddl.strip()}")
+                print(f"  [DRY-RUN S3_ARCHIVE] {archive_sql.strip()}")
+                print(f"  [DRY-RUN S6_DROP] {drop_ddl.strip()}")
+                change_set["state"] = "DRY_RUN_COMPLETE"
+                return change_set
+
+            try:
+                print(f"  [S1 CLONE EXEC] Creating zero-copy backup clone: {backup_fqn}")
+                self.client.query(clone_ddl).result()
+                print(f"  [S3 ARCHIVE EXEC] Exporting table data to Cloud Storage: {archive_uri}")
+                self.client.query(archive_sql).result()
+                print(f"  [S6 DROP EXEC] Dropping unused table: {target_fqn}")
+                self.client.query(drop_ddl).result()
+                print(f"  [S9 HOLD] Retaining zero-copy undo clone {backup_fqn} for {retention_days} days.")
+                change_set["state"] = "APPLIED"
+                change_set["applied_at"] = datetime.now(timezone.utc).isoformat()
+            except Exception as e:
+                print(f"  [ERROR] Apply aborted: {e}. Executing clean abort...")
+                change_set["state"] = "FAILED"
+                change_set["rejection_note"] = str(e)
+            return change_set
+
+        # Partition / Cluster Rebuild
+        part_col = changes[0].get("partition_column", "_PARTITIONDATE") if changes else "_PARTITIONDATE"
         build_ddl = f"""
         CREATE OR REPLACE TABLE {target_fqn}
         PARTITION BY DATE({part_col})

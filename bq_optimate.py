@@ -76,30 +76,60 @@ def main():
 
     elif args.action == "apply":
         executor = ExecutorStateMachine(client, ops_project, cfg)
-        demo_cs = {
-            "change_set_id": args.change_set_id or "demo-cs-001",
-            "apply_class": 3,
-            "target_project": ops_project,
-            "target_dataset": "analytics",
-            "target_table": "events_large",
-            "execution_route": "DIRECT_GUARDED",
-            "proposed_change": '[{"action": "PARTITION_TABLE", "partition_column": "event_timestamp"}]'
-        }
-        executor.apply_change_set(demo_cs, mode=args.mode)
+        cs = None
+        if args.change_set_id:
+            query = f"""
+            SELECT * FROM `{ops_project}.optimizer_ops.change_sets`
+            WHERE change_set_id = '{args.change_set_id}'
+            LIMIT 1
+            """
+            try:
+                rows = list(client.query(query).result())
+                if rows:
+                    cs = dict(rows[0])
+            except Exception as e:
+                print(f"Could not load change set from BigQuery: {e}")
+
+        if not cs:
+            cs = {
+                "change_set_id": args.change_set_id or "demo-cs-001",
+                "apply_class": 3,
+                "target_project": ops_project,
+                "target_dataset": "analytics",
+                "target_table": "events_large",
+                "execution_route": "DIRECT_GUARDED",
+                "proposed_change": '[{"action": "PARTITION_TABLE", "partition_column": "event_timestamp"}]'
+            }
+        executor.apply_change_set(cs, mode=args.mode)
 
     elif args.action == "verify":
         verifier = Verifier(client, ops_project, cfg)
-        demo_cs_verifying = {
-            "change_set_id": args.change_set_id or "demo-cs-001",
-            "state": "VERIFYING",
-            "target_project": ops_project,
-            "target_dataset": "analytics",
-            "target_table": "events_large",
-            "gross_monthly_savings_usd": 125.50,
-            "rule_ids": ["C3-01"],
-            "native_rec_names": ["google.bigquery.table.PartitionClusterRecommender/123"]
-        }
-        verifier.verify_change_sets([demo_cs_verifying])
+        cs_list = []
+        if args.change_set_id:
+            query = f"""
+            SELECT * FROM `{ops_project}.optimizer_ops.change_sets`
+            WHERE change_set_id = '{args.change_set_id}'
+            LIMIT 1
+            """
+            try:
+                rows = list(client.query(query).result())
+                if rows:
+                    cs_list = [dict(r) for r in rows]
+            except Exception as e:
+                print(f"Could not load change set from BigQuery: {e}")
+
+        if not cs_list:
+            cs_list = [{
+                "change_set_id": args.change_set_id or "demo-cs-001",
+                "state": "VERIFYING",
+                "target_project": ops_project,
+                "target_dataset": "analytics",
+                "target_table": "events_large",
+                "gross_monthly_savings_usd": 125.50,
+                "rule_ids": ["C3-01"],
+                "native_rec_names": ["google.bigquery.table.PartitionClusterRecommender/123"]
+            }]
+        verifier.verify_change_sets(cs_list)
 
     print("=== Execution Complete ===")
 
